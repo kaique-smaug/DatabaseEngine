@@ -4,10 +4,10 @@ import mysql.connector
 import json
 import sys
 
-if r'V:\00_CONF_ROBOS\MYSQL\Conection' not in sys.path:
-     sys.path.append(r'V:\00_CONF_ROBOS\MYSQL\Conection')
+if r'Your directory' not in sys.path:
+     sys.path.append(r'Your directory')
 
-json_file_path = r'V:\00_CONF_ROBOS\MYSQL\Conection\mysql_config.json'
+json_file_path = r'Your directory\mysql_config.json'
 
 class InsertSQL:
     def __init__(self, query):
