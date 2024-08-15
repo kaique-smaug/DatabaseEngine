@@ -1,3 +1,5 @@
+Em andamento: irei alimentar esse repositório constantemente ao passar do tempo.
+
 InsertSQL Class
 Descrição
 A classe InsertSQL facilita a execução de consultas e inserções em um banco de dados MySQL a partir de um script Python. Ela permite estabelecer uma conexão com o banco de dados utilizando informações armazenadas em um arquivo JSON e executar consultas SQL diretamente.
