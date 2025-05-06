@@ -4,27 +4,29 @@ __version__ = '1.1.5'
 from sqlite3 import connect as connect_sqlite, OperationalError
 from mysql.connector import connect, Error 
 from json import  load, JSONDecodeError
-from src.log.log import LoggerSetup
+from src.config_scripts.log.log import LoggerSetup
 from sys import path
+
+import sqlite3 as sq
 
 #Add the path for the MySQL configuration if not already present
 if r'V:\00_CONF_ROBOS\MYSQL\Conection' not in path:
     path.append(r'V:\00_CONF_ROBOS\MYSQL\Conection')
 
 #Path to the MySQL configuration JSON file
-json_file_path = r'DIRECTORY WHERE YOUR FILE CONFIG IS LOCATED, CASE NECESSARY'
+json_file_path = r'V:\00_CONF_ROBOS\MYSQL\Conection\mysql_config.json'
 
 class InsertSQL:
     def __init__(self, query: str = None):
         # Initialize the class with an optional SQL query
         self.query = query
         self.__log = LoggerSetup(
-            r'DIRECTORY WHERE YOUR MUST SAVE FILE LOG',  # Network path to log directory
-            'NAME_LOG.log',  # Log file name
-            'NAME/CATEGORY'  # Log process name/category
+            r'V:\01_ROBOS\149\Batimento_Dump\logs',  # Network path to log directory
+            'log_Config_Scripts_SQL.log',  # Log file name
+            'SQL'  # Log process name/category
         )
         self._sqlite_conn = None
-
+    
     def read_connection_info(self, filename: str = None) -> str:
         """
             Read connection information from a JSON file.
@@ -96,6 +98,7 @@ class InsertSQL:
             except Error as e:
                 self.__log.error_message(f"Database error: {e}")
                 self._connection.rollback()  # Rollback the transaction
+                
             finally:
                 # Close the connection
                 self._connection.close()
@@ -159,62 +162,42 @@ class InsertSQL:
                 #Close the connection
                 self._connection.close()
     
-    def connect_sqlite(self, path_dataBase):
+    def connect_sqlite(self, path_database):
         try:
-            """
-                Estabelece uma conexão persistente com o banco de dados.
-            """
             if not self._sqlite_conn:
-                self._sqlite_conn = connect_sqlite(path_dataBase)
+                self._sqlite_conn = sq.connect(path_database)
                 self._sqlite_cursor = self._sqlite_conn.cursor()
+            else:
+                self.__log.info_message(f"SQLite connection exist")
 
         except OperationalError as e:
             self.__log.error_message(f"SQLite connection error: {e}")
 
-    def sql_lite_insert(self, path_dataBase: str = None, values: str = None, create_base_save_process: str = None):
-        """
-            Inserts data into an SQLite database.
-            
-            Parameters:
-                path_dataBase (str): Path to the SQLite database file.
-                values (str or list): Values to be inserted. Can be a single tuple or a list of tuples.
-                create_base_save_process (str): Optional SQL statement to create the table before inserting data.
-        """
-        #Connect to the SQLite database
-        self.connect_sqlite(path_dataBase)
+    def sql_lite_insert(self, path_database, values, create_base_save_process):
+        self.connect_sqlite(path_database)
+        if not self._sqlite_conn:
+            self.__log.info_message(f"SQLite without connection")
+            return []
         
-        if self._sqlite_conn:
-            try:
-                if isinstance(values, list) or isinstance(values, tuple):
-                    if create_base_save_process:
-                        #If the table doens't exist, it will go create a table specified in the function argument  
-                        self._sqlite_cursor.execute(create_base_save_process)
+        try:
+            if create_base_save_process:
+                #If the table doens't exist, it will go create a table specified in the function argument  
+                self._sqlite_cursor.execute(create_base_save_process)
+        
 
-                    if values is not None and len(values) > 0:
-                        #Insert multiple rows into the table
-                        self._sqlite_cursor.executemany(self.query, values)
+            if isinstance(values, list):
+                    self._sqlite_cursor.executemany(self.query, values)
+            else:
+                self._sqlite_cursor.execute(self.query, values)
 
-                    else:
-                        self._sqlite_cursor.execute(values)
-
-                else:
-                    if create_base_save_process:
-                        #Execute table creation statement if provided
-                        self._sqlite_cursor.execute(create_base_save_process)
-                    
-                    #Insert a single row into the table
-                    self._sqlite_cursor.execute(self.query, values)
-
-                #Commit the transaction only for UPDATE, INSERT, DELETE
-                if self.query.strip().upper().startswith(("INSERT")):
-                    #Commit the transaction to save changes
-                    self._sqlite_conn.commit()
-
-                else:
-                    #If the value of self.query doesn't contain 'INSERT', it is going to write an info message in the log file.
-                    self.__log.info_message(f"SQLite without connection: {e}")
-
-            except OperationalError as e:
+            if self.query.strip().upper().startswith(("INSERT")):
+                self._sqlite_conn.commit()
+            
+            else:
+                #If the value of self.query doesn't contain 'INSERT', it is going to write an info message in the log file.
+                self.__log.info_message(f"SQComand isn't 'Insert'")
+        
+        except OperationalError as e:
                 #Handle SQLite query execution errors and log them
                 self.__log.error_message(f"SQLite query execution error: {e}")
 
@@ -232,11 +215,20 @@ class InsertSQL:
         # Connect to the SQLite database
         self.connect_sqlite(path_dataBase)
         
+        if not self._sqlite_conn:
+            return []
+        
         if self._sqlite_conn:
+
             try:
                 # If values are provided, execute the query with those values
                 if values is not None:
-                    self._sqlite_cursor.executemany(self.query, values)
+                    if len(values) > 1:
+                        self._sqlite_cursor.executemany(self.query, values)
+                    else:
+                        
+                        self._sqlite_cursor.execute(self.query, values)
+
                 else:
                     # Execute the query without values
                     self._sqlite_cursor.execute(self.query)
@@ -261,14 +253,15 @@ class InsertSQL:
                     
                     # Convert the result into a list of values
                     self._lista_values = []
-                    for value in self._dados_sqlite:
-                        self._lista_values.append(value)
+                    if self._dados_sqlite:
+                        for value in self._dados_sqlite:
+                            self._lista_values.append(value)
 
                     return self._lista_values
             
             except OperationalError as e:
                 # Log any errors that occur during query execution
-                self.__log.error_message(f"SQLite query execution error: {e}")
+                self.__log.error_message(f"SQLite query execution finction query_sqlite error: {e}")
                 # Rollback the transaction in case of an error
                 self._sqlite_conn.rollback()
 
@@ -287,4 +280,4 @@ class InsertSQL:
 
             # Handle any operational errors during the connection closing
             except OperationalError as e:
-                self.__log.error_message(f"SQLite query execution error: {e}")
+                self.__log.error_message(f"SQLite query execution close connection error: {e}")
