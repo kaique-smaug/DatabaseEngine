@@ -1,10 +1,10 @@
 # src/mysql/sql_insertion.py
-__version__ = '1.1.5'
+__version__ = '1.1.6'
 
 from sqlite3 import connect as connect_sqlite, OperationalError
 from mysql.connector import connect, Error 
 from json import  load, JSONDecodeError
-from src.config_scripts.log.log import LoggerSetup
+from log import LoggerSetup
 from sys import path
 
 import sqlite3 as sq
@@ -14,19 +14,20 @@ if r'V:\00_CONF_ROBOS\MYSQL\Conection' not in path:
     path.append(r'V:\00_CONF_ROBOS\MYSQL\Conection')
 
 #Path to the MySQL configuration JSON file
-json_file_path = r'V:\00_CONF_ROBOS\MYSQL\Conection\mysql_config.json'
+json_file_path = r'PATH WHERE YOUR CONFIG FILE IS LOCALIZED'
 
 class InsertSQL:
     def __init__(self, query: str = None):
         # Initialize the class with an optional SQL query
         self.query = query
         self.__log = LoggerSetup(
-            r'V:\01_ROBOS\149\Batimento_Dump\logs',  # Network path to log directory
-            'log_Config_Scripts_SQL.log',  # Log file name
-            'SQL'  # Log process name/category
+            r'PATH WHERE YOU WANT TO SAVE',  # Network path to log directory
+            'LOG.log',  # Log file name
+            'NAME INSTANCE'  # Log process name/category
         )
         self._sqlite_conn = None
-    
+        self.__connection_mysql = None
+        
     def read_connection_info(self, filename: str = None) -> str:
         """
             Read connection information from a JSON file.
@@ -61,16 +62,23 @@ class InsertSQL:
 
         if self._connection_info:
             try:
-                # Create a MySQL connection using the provided parameters
-                self.__connection = connect(**self._connection_info)
-                return self.__connection 
-            
+                if  not self.__connection_mysql:
+                    # Create a MySQL connection using the provided parameters
+                    self.__connection_mysql = connect(**self._connection_info)
+                    return self.__connection_mysql 
+
             except Error as e:
                 # Handle MySQL connection errors
                 self.__log.error_message(f"MySQL query execution error: {e}")
                 # Rollback the transaction in case of an error
                 self._connection.rollback()
-                #return None
+                return None
+    
+    def close_connection_mysql(self):
+        if self.__connection_mysql:
+            self.__connection_mysql.close()
+            self.__connection_mysql = None
+            print('fechou')
 
     def mysql_insert(self, value: list = None, value_two: list = None) -> None:
         """
@@ -99,9 +107,7 @@ class InsertSQL:
                 self.__log.error_message(f"Database error: {e}")
                 self._connection.rollback()  # Rollback the transaction
                 
-            finally:
-                # Close the connection
-                self._connection.close()
+           
 
     def mysql_query(self, values: str = None) -> tuple[list, str]:
         """
@@ -135,14 +141,13 @@ class InsertSQL:
                 self.__log.error_message(f"MySQL query execution error: {e}")
                 self._connection.rollback()
 
-            finally:
-                self._connection.close()
 
-    def delete(self, host: str = None, port: str = None, user: str = None, password: str = None, database: str = None) -> None:
+
+    def delete(self) -> None:
         """
             Executes a delete query on the MySQL database.
         """
-        self._connection = self.connection(host, port, user, password, database)
+        self._connection = self.connection()
 
         if self._connection:
             try:
@@ -158,14 +163,12 @@ class InsertSQL:
                 #Rollback the transaction in case of an error
                 self._connection.rollback()
                 
-            finally:
-                #Close the connection
-                self._connection.close()
+        
     
     def connect_sqlite(self, path_database):
         try:
             if not self._sqlite_conn:
-                self._sqlite_conn = sq.connect(path_database)
+                self._sqlite_conn = connect_sqlite(path_database)
                 self._sqlite_cursor = self._sqlite_conn.cursor()
             else:
                 self.__log.info_message(f"SQLite connection exist")
